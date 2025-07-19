@@ -43,8 +43,8 @@ Thumbs.db
 .dockerignore
 
 # Test outputs (but keep sample outputs)
-# sample_dataset/outputs/*.json
-# !sample_dataset/outputs/sample_document.json
+sample_dataset/outputs/*.json
+!sample_dataset/outputs/sample_document.json
 
 # Logs
 *.log

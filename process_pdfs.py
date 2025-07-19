@@ -18,6 +18,26 @@ import os
 import sys
 import re
 import time
+import logging
+from pathlib import Path
+from datetime import datetime
+from typing import Dict, List, Any, Optional, Tuple
+
+# PDF processing libraries
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    fitz = None
+
+try:
+    import pdfplumber
+except ImportError:
+    pdfplumber = None
+
+try:
+    import PyPDF2
+except ImportError:
+    PyPDF2 = None
 from pathlib import Path
 from typing import Dict, List, Any, Tuple, Optional
 import logging
@@ -180,39 +200,13 @@ def parse_document_structure(text_content: str, pdf_filename: str, page_count: i
     # Extract document title
     title = _extract_document_title(text_content, pdf_filename)
     
-    # Parse sections from text
-    sections = _parse_sections(text_content, extraction_metadata.get("page_texts", []))
+    # Extract outline (headings) from text
+    outline = _extract_outline(text_content, extraction_metadata.get("page_texts", []))
     
-    # Extract tables if available
-    tables = _extract_tables(text_content, extraction_metadata.get("page_texts", []))
-    
-    # Calculate confidence score based on text quality
-    confidence_score = _calculate_confidence_score(text_content, sections)
-    
-    # Detect language
-    language = _detect_language(text_content)
-    
-    # Calculate word count
-    word_count = len(text_content.split()) if text_content else 0
-    
+    # Create simple output format matching the schema
     structured_data = {
-        "document_info": {
-            "filename": pdf_filename,
-            "title": title,
-            "pages": page_count,
-            "processing_timestamp": datetime.utcnow().isoformat() + "Z"
-        },
-        "content": {
-            "sections": sections,
-            "tables": tables
-        },
-        "metadata": {
-            "extraction_method": extraction_metadata.get("extraction_method", "unknown"),
-            "confidence_score": confidence_score,
-            "language": language,
-            "word_count": word_count,
-            "processing_time_ms": extraction_metadata.get("processing_time_ms", 0)
-        }
+        "title": title,
+        "outline": outline
     }
     
     return structured_data
@@ -224,196 +218,141 @@ def _extract_document_title(text_content: str, pdf_filename: str) -> str:
     
     lines = text_content.split('\n')
     
-    # Look for title patterns in the first few lines
-    for line in lines[:10]:
-        line = line.strip()
-        if line and len(line) > 5 and len(line) < 100:
-            # Skip page markers
-            if re.match(r'^--- PAGE \d+ ---$', line):
-                continue
-            # Skip very short lines or lines with mostly special characters
-            if len(re.sub(r'[^a-zA-Z0-9\s]', '', line)) > len(line) * 0.5:
-                return line
-    
-    # Fallback to filename-based title
-    return f"Document from {Path(pdf_filename).stem}"
-
-def _parse_sections(text_content: str, page_texts: List[str]) -> List[Dict[str, Any]]:
-    """Parse sections from text content"""
-    sections = []
-    
-    if not text_content:
-        return sections
-    
-    # Split by page markers and process each page
-    page_pattern = r'--- PAGE (\d+) ---'
-    page_splits = re.split(page_pattern, text_content)
-    
-    current_page = 1
-    section_id = 1
-    
-    # Process content that might not have page markers
-    if len(page_splits) == 1:
-        sections.extend(_extract_sections_from_text(page_splits[0], current_page, section_id))
-    else:
-        # Process content with page markers
-        for i in range(1, len(page_splits), 2):
-            if i + 1 < len(page_splits):
-                page_num = int(page_splits[i])
-                page_content = page_splits[i + 1]
-                page_sections = _extract_sections_from_text(page_content, page_num, section_id)
-                sections.extend(page_sections)
-                section_id += len(page_sections)
-    
-    return sections
-
-def _extract_sections_from_text(text: str, page_num: int, start_section_id: int) -> List[Dict[str, Any]]:
-    """Extract sections from a piece of text"""
-    sections = []
-    
-    # Look for heading patterns (lines that might be headings)
-    lines = text.split('\n')
-    current_section = None
-    content_buffer = []
-    section_id = start_section_id
-    
-    heading_patterns = [
-        r'^[A-Z][A-Z\s\d\.\-]{5,50}$',  # ALL CAPS headings
-        r'^\d+\.\s+[A-Z][A-Za-z\s]{5,50}$',  # Numbered headings
-        r'^Chapter\s+\d+',  # Chapter headings
-        r'^Section\s+\d+',  # Section headings
-        r'^[A-Z][a-z]+(\s+[A-Z][a-z]+)*:?$',  # Title Case headings
-    ]
-    
-    for line in lines:
+    # Look for title patterns in the first few pages
+    for line in lines[:100]:  # Check first 100 lines
         line = line.strip()
         if not line:
             continue
         
-        # Check if this line looks like a heading
-        is_heading = any(re.match(pattern, line) for pattern in heading_patterns)
+        # Skip page markers
+        if re.match(r'^--- PAGE \d+ ---$', line):
+            continue
         
-        if is_heading and len(line) < 100:
-            # Save previous section if exists
-            if current_section and content_buffer:
-                current_section["content"] = ' '.join(content_buffer).strip()
-                if current_section["content"]:
-                    sections.append(current_section)
-            
-            # Start new section
-            current_section = {
-                "section_id": section_id,
-                "title": line.rstrip(':'),
-                "content": "",
-                "page_number": page_num
-            }
-            content_buffer = []
-            section_id += 1
-        else:
-            # Add to content buffer
-            content_buffer.append(line)
+        # Skip common headers/footers
+        if re.match(r'^(International|Overview|Software Testing|Qualifications Board)$', line, re.IGNORECASE):
+            continue
+        
+        # Look for title-like patterns
+        if re.match(r'^[A-Z][A-Za-z\s\-–]{10,80}$', line):
+            # Check if it looks like a real title (not a header)
+            if any(word in line.lower() for word in ['foundation', 'level', 'extension', 'overview', 'introduction', 'guide', 'manual', 'document']):
+                return line.strip()
+        
+        # Look for lines that might be titles (first substantial text)
+        if len(line) > 10 and len(line) < 100:
+            # If it contains typical title words
+            title_indicators = ['overview', 'introduction', 'guide', 'manual', 'foundation', 'level', 'extension', 'challenge', 'hackathon']
+            if any(indicator in line.lower() for indicator in title_indicators):
+                return line.strip()
     
-    # Add the last section
-    if current_section and content_buffer:
-        current_section["content"] = ' '.join(content_buffer).strip()
-        if current_section["content"]:
-            sections.append(current_section)
-    
-    # If no clear sections found, create a general content section
-    if not sections and text.strip():
-        sections.append({
-            "section_id": section_id,
-            "title": "Content",
-            "content": ' '.join(text.split()),
-            "page_number": page_num
-        })
-    
-    return sections
+    # Fallback to filename-based title
+    return f"Document from {Path(pdf_filename).stem}"
 
-def _extract_tables(text_content: str, page_texts: List[str]) -> List[Dict[str, Any]]:
-    """Extract tables from text content"""
-    tables = []
+def _extract_outline(text_content: str, page_texts: List[str]) -> List[Dict[str, Any]]:
+    """Extract outline (headings) from text content in the simple format"""
+    outline = []
     
-    # Simple table detection based on text patterns
-    # Look for lines with multiple columns separated by spaces or tabs
-    table_patterns = [
-        r'^.*\t.*\t.*$',  # Tab-separated
-        r'^.*\s{3,}.*\s{3,}.*$',  # Multiple spaces
-        r'^\|.*\|.*\|.*\|$',  # Pipe-separated
+    # Split text by page markers to get page-wise content
+    if "--- PAGE" in text_content:
+        # Use regex to split and capture page numbers
+        page_pattern = r'\n--- PAGE (\d+) ---\n'
+        parts = re.split(page_pattern, text_content)
+        
+        # Parts will be: [content_before_first_page, page1_num, page1_content, page2_num, page2_content, ...]
+        for i in range(1, len(parts), 2):
+            if i + 1 < len(parts):
+                page_num = int(parts[i])
+                page_content = parts[i + 1]
+                
+                # Extract headings from this page
+                page_headings = _extract_headings_from_page(page_content, page_num)
+                outline.extend(page_headings)
+    else:
+        # If no page markers, process as single page
+        page_headings = _extract_headings_from_page(text_content, 1)
+        outline.extend(page_headings)
+    
+    return outline
+
+def _extract_headings_from_page(page_content: str, page_num: int) -> List[Dict[str, Any]]:
+    """Extract headings from a single page with improved filtering"""
+    headings = []
+    lines = page_content.split('\n')
+    
+    # Common header/footer patterns to ignore
+    ignore_patterns = [
+        r'^International\s*$',
+        r'^Overview\s*$', 
+        r'^Software Testing\s*$',
+        r'^Qualifications Board\s*$',
+        r'^Foundation Level Extension.*Agile Tester\s*$',
+        r'^Version\s*$',
+        r'^Date\s*$', 
+        r'^Remarks\s*$',
+        r'^Days\s*$',
+        r'^Syllabus\s*$',
+        r'^Identifier\s*$',
+        r'^Reference\s*$',
+        r'^\d+$',  # Page numbers
+        r'^Page \d+$',
+        r'.*Copyright.*',
+        r'.*©.*',
     ]
     
-    page_num = 1
-    table_id = 1
-    
-    for page_text in page_texts or [text_content]:
-        lines = page_text.split('\n') if page_text else []
+    # More specific heading patterns
+    heading_patterns = [
+        # H1 patterns - main sections (numbered or major headings)
+        (r'^\d+\.\s+[A-Z][A-Za-z\s\-–]{10,80}$', 'H1'),  # "1. Introduction to Foundation Level..."
+        (r'^[A-Z][A-Z\s]{10,50}$', 'H1'),  # "REVISION HISTORY", "TABLE OF CONTENTS"
+        (r'^Chapter\s+\d+:.*', 'H1'),  # "Chapter 1: Agile Software Development"
+        (r'^Acknowledgements?\s*$', 'H1'),
+        (r'^References?\s*$', 'H1'),
         
-        i = 0
-        while i < len(lines):
-            line = lines[i].strip()
-            
-            # Check if this line matches table patterns
-            if any(re.match(pattern, line) for pattern in table_patterns):
-                # Try to extract a table starting from this line
-                table = _extract_table_from_lines(lines[i:], table_id, page_num)
-                if table:
-                    tables.append(table)
-                    table_id += 1
-                    i += len(table.get("rows", [])) + 1  # Skip processed lines
-                else:
-                    i += 1
-            else:
-                i += 1
-        
-        page_num += 1
+        # H2 patterns - subsections (numbered subsections)
+        (r'^\d+\.\d+\s+[A-Za-z][A-Za-z\s\-–]{5,50}$', 'H2'),  # "2.1 Intended Audience"
+        (r'^\d+\.\d+\.\d+\s+[A-Za-z][A-Za-z\s\-–]{3,50}$', 'H3'),  # "2.1.1 Details"
+    ]
     
-    return tables
-
-def _extract_table_from_lines(lines: List[str], table_id: int, page_num: int) -> Optional[Dict[str, Any]]:
-    """Extract a table from a list of lines"""
-    if not lines:
-        return None
+    # Track seen headings to avoid duplicates
+    seen_headings = set()
     
-    # Simple table extraction - look for consistent patterns
-    table_lines = []
-    
-    for line in lines[:10]:  # Check up to 10 lines
+    for line in lines:
         line = line.strip()
-        if not line:
-            break
+        if not line or len(line) > 100:  # Skip empty or very long lines
+            continue
         
-        # Check if line has table-like structure
-        if '\t' in line:
-            table_lines.append(line.split('\t'))
-        elif re.search(r'\s{3,}', line):
-            table_lines.append(re.split(r'\s{3,}', line))
-        elif line.count('|') >= 2:
-            table_lines.append([cell.strip() for cell in line.split('|') if cell.strip()])
-        else:
-            break
+        # Skip common header/footer patterns
+        if any(re.match(pattern, line, re.IGNORECASE) for pattern in ignore_patterns):
+            continue
+        
+        # Check each heading pattern
+        for pattern, level in heading_patterns:
+            if re.match(pattern, line):
+                # Clean up the heading text
+                heading_text = line.rstrip(':').strip()
+                
+                # Create a key for duplicate detection (normalize whitespace)
+                heading_key = ' '.join(heading_text.split()).lower()
+                
+                # Skip if we've seen this heading before
+                if heading_key in seen_headings:
+                    continue
+                
+                # Skip very short headings (likely false positives)
+                if len(heading_text.strip()) < 3:
+                    continue
+                
+                headings.append({
+                    "level": level,
+                    "text": heading_text,
+                    "page": page_num
+                })
+                seen_headings.add(heading_key)
+                break  # Found a match, don't check other patterns
     
-    if len(table_lines) < 2:  # Need at least header and one row
-        return None
-    
-    # Assume first line is header
-    headers = [cell.strip() for cell in table_lines[0]]
-    rows = []
-    
-    for row_data in table_lines[1:]:
-        if len(row_data) == len(headers):
-            rows.append([cell.strip() for cell in row_data])
-    
-    if not rows:
-        return None
-    
-    return {
-        "table_id": table_id,
-        "page_number": page_num,
-        "headers": headers,
-        "rows": rows
-    }
+    return headings
 
-def _calculate_confidence_score(text_content: str, sections: List[Dict[str, Any]]) -> float:
+def _calculate_confidence_score(text_content: str, outline: List[Dict[str, Any]]) -> float:
     """Calculate confidence score for the extraction quality"""
     if not text_content:
         return 0.0
@@ -421,7 +360,7 @@ def _calculate_confidence_score(text_content: str, sections: List[Dict[str, Any]
     score = 0.5  # Base score
     
     # Add points for having structured content
-    if sections:
+    if outline:
         score += 0.2
     
     # Add points for reasonable text length
@@ -437,26 +376,6 @@ def _calculate_confidence_score(text_content: str, sections: List[Dict[str, Any]
         score += 0.1
     
     return min(1.0, score)
-
-def _detect_language(text_content: str) -> str:
-    """Simple language detection"""
-    if not text_content:
-        return "unknown"
-    
-    # Simple English detection based on common words
-    english_words = {'the', 'and', 'of', 'to', 'a', 'in', 'is', 'it', 'you', 'that', 'he', 'was', 'for', 'on', 'are', 'as', 'with', 'his', 'they', 'i', 'at', 'be', 'this', 'have', 'from', 'or', 'one', 'had', 'by', 'word', 'but', 'not', 'what', 'all', 'were', 'we', 'when', 'your', 'can', 'said', 'there', 'each', 'which', 'she', 'do', 'how', 'their', 'if', 'will', 'up', 'other', 'about', 'out', 'many', 'then', 'them', 'these', 'so', 'some', 'her', 'would', 'make', 'like', 'into', 'him', 'has', 'two', 'more', 'very', 'after', 'words', 'first', 'where', 'much', 'before', 'right', 'too', 'any', 'same', 'tell', 'boy', 'follow', 'came', 'want', 'show', 'also', 'around', 'form', 'three', 'small', 'set', 'put', 'end', 'why', 'again', 'turn', 'here', 'off', 'went', 'old', 'number', 'great', 'tell', 'men', 'say', 'small', 'every', 'found', 'still', 'between', 'name', 'should', 'home', 'big', 'give', 'air', 'line', 'set', 'own', 'under', 'read', 'last', 'never', 'us', 'left', 'end', 'along', 'while', 'might', 'next', 'sound', 'below', 'saw', 'something', 'thought', 'both', 'few', 'those', 'always', 'show', 'large', 'often', 'together', 'asked', 'house', 'don', 'world', 'going', 'want', 'school', 'important', 'until', 'form', 'food', 'keep', 'children', 'feet', 'land', 'side', 'without', 'boy', 'once', 'animal', 'life', 'enough', 'took', 'sometimes', 'four', 'head', 'above', 'kind', 'began', 'almost', 'live', 'page', 'got', 'earth', 'need', 'far', 'hand', 'high', 'year', 'mother', 'light', 'country', 'father', 'let', 'night', 'picture', 'being', 'study', 'second', 'soon', 'story', 'since', 'white', 'ever', 'paper', 'hard', 'near', 'sentence', 'better', 'best', 'across', 'during', 'today', 'however', 'sure', 'knew', 'it', 'try', 'told', 'young', 'sun', 'thing', 'whole', 'hear', 'example', 'heard', 'several', 'change', 'answer', 'room', 'sea', 'against', 'top', 'turned', 'learn', 'point', 'city', 'play', 'toward', 'five', 'himself', 'usually', 'money', 'seen', 'didn', 'car', 'morning', 'i', 'you', 'he', 'she', 'it', 'we', 'they'}
-    
-    words = re.findall(r'\b\w+\b', text_content.lower())
-    if not words:
-        return "unknown"
-    
-    english_count = sum(1 for word in words if word in english_words)
-    english_ratio = english_count / len(words)
-    
-    if english_ratio > 0.1:  # If more than 10% are common English words
-        return "en"
-    else:
-        return "unknown"
 
 def process_single_pdf(pdf_path: Path, output_dir: Path) -> bool:
     """

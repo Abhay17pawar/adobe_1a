@@ -1,139 +1,208 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "PDF Processing Output Schema",
-  "description": "Schema for JSON output generated from PDF processing",
+  "$schema": "http://json-schema.org/draft-04/schema#",
   "type": "object",
-  "required": ["document_info", "content", "metadata"],
   "properties": {
-    "document_info": {
-      "type": "object",
-      "required": ["filename", "title", "pages"],
-      "properties": {
-        "filename": {
-          "type": "string",
-          "description": "Original PDF filename"
-        },
-        "title": {
-          "type": "string",
-          "description": "Document title extracted from PDF"
-        },
-        "pages": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Total number of pages in the document"
-        },
-        "processing_timestamp": {
-          "type": "string",
-          "format": "date-time",
-          "description": "ISO 8601 timestamp when processing was completed"
-        }
-      }
+    "title": {
+      "type": "string"
     },
-    "content": {
-      "type": "object",
-      "required": ["sections"],
-      "properties": {
-        "sections": {
-          "type": "array",
-          "description": "Structured content sections extracted from the PDF",
-          "items": {
-            "type": "object",
-            "required": ["section_id", "title", "content", "page_number"],
-            "properties": {
-              "section_id": {
-                "type": "integer",
-                "description": "Unique identifier for the section"
-              },
-              "title": {
-                "type": "string",
-                "description": "Section heading or title"
-              },
-              "content": {
-                "type": "string",
-                "description": "Text content of the section"
-              },
-              "page_number": {
-                "type": "integer",
-                "minimum": 1,
-                "description": "Page number where this section appears"
-              },
-              "subsections": {
-                "type": "array",
-                "description": "Nested subsections within this section",
-                "items": {
-                  "$ref": "#/properties/content/properties/sections/items"
-                }
-              }
+    "outline": {
+      "type": "array",
+      "items": [
+        {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "page": {
+              "type": "integer"
             }
-          }
+          },
+          "required": [
+            "level",
+            "text",
+            "page"
+          ]
         },
-        "tables": {
-          "type": "array",
-          "description": "Tables extracted from the PDF",
-          "items": {
-            "type": "object",
-            "required": ["table_id", "page_number", "headers", "rows"],
-            "properties": {
-              "table_id": {
-                "type": "integer",
-                "description": "Unique identifier for the table"
-              },
-              "page_number": {
-                "type": "integer",
-                "minimum": 1,
-                "description": "Page number where this table appears"
-              },
-              "headers": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "description": "Table column headers"
-              },
-              "rows": {
-                "type": "array",
-                "items": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "description": "Table data rows"
-              }
+        {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "page": {
+              "type": "integer"
             }
-          }
+          },
+          "required": [
+            "level",
+            "text",
+            "page"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "page": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "level",
+            "text",
+            "page"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "page": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "level",
+            "text",
+            "page"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "page": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "level",
+            "text",
+            "page"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "page": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "level",
+            "text",
+            "page"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "page": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "level",
+            "text",
+            "page"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "page": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "level",
+            "text",
+            "page"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "page": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "level",
+            "text",
+            "page"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "page": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "level",
+            "text",
+            "page"
+          ]
         }
-      }
-    },
-    "metadata": {
-      "type": "object",
-      "required": ["extraction_method"],
-      "properties": {
-        "extraction_method": {
-          "type": "string",
-          "description": "Method or library used for text extraction"
-        },
-        "confidence_score": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1,
-          "description": "Confidence score for the extraction quality"
-        },
-        "language": {
-          "type": "string",
-          "description": "Detected language of the document"
-        },
-        "word_count": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Total word count in the document"
-        },
-        "processing_time_ms": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Processing time in milliseconds"
-        }
-      }
+      ]
     }
-  }
+  },
+  "required": [
+    "title",
+    "outline"
+  ]
 }
