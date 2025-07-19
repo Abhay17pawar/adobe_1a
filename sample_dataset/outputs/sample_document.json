@@ -1,0 +1,69 @@
+{
+  "document_info": {
+    "filename": "sample_document.pdf",
+    "title": "Sample Document for PDF Processing",
+    "pages": 3,
+    "processing_timestamp": "2025-07-19T10:30:00Z"
+  },
+  "content": {
+    "sections": [
+      {
+        "section_id": 1,
+        "title": "Introduction",
+        "content": "This is the introduction section of the sample document. It provides an overview of the document's purpose and structure.",
+        "page_number": 1
+      },
+      {
+        "section_id": 2,
+        "title": "Methodology",
+        "content": "This section describes the methodology used in the research or analysis presented in the document.",
+        "page_number": 2,
+        "subsections": [
+          {
+            "section_id": 21,
+            "title": "Data Collection",
+            "content": "Details about how data was collected for the analysis.",
+            "page_number": 2
+          },
+          {
+            "section_id": 22,
+            "title": "Analysis Framework",
+            "content": "Description of the analytical framework employed.",
+            "page_number": 2
+          }
+        ]
+      },
+      {
+        "section_id": 3,
+        "title": "Results",
+        "content": "This section presents the results of the analysis or research.",
+        "page_number": 3
+      },
+      {
+        "section_id": 4,
+        "title": "Conclusion",
+        "content": "Final thoughts and conclusions drawn from the analysis.",
+        "page_number": 3
+      }
+    ],
+    "tables": [
+      {
+        "table_id": 1,
+        "page_number": 2,
+        "headers": ["Parameter", "Value", "Unit"],
+        "rows": [
+          ["Temperature", "25.5", "°C"],
+          ["Pressure", "1013", "hPa"],
+          ["Humidity", "60", "%"]
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "extraction_method": "pymupdf",
+    "confidence_score": 0.92,
+    "language": "en",
+    "word_count": 187,
+    "processing_time_ms": 1250
+  }
+}
