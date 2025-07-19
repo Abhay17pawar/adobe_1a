@@ -1,4 +1,10 @@
 {
   "title": "Document from file01",
-  "outline": []
+  "outline": [
+    {
+      "level": "H1",
+      "text": "12. Amount of advance required.",
+      "page": 1
+    }
+  ]
 }
