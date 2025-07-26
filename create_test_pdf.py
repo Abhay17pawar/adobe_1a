@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-Create a simple test PDF for testing the PDF processing solution.
-This script creates a basic PDF with text content and sections.
-"""
-
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -13,20 +7,17 @@ from pathlib import Path
 import sys
 
 def create_test_pdf(output_path: Path):
-    """Create a test PDF with structured content"""
     
-    # Create document
     doc = SimpleDocTemplate(str(output_path), pagesize=A4)
     styles = getSampleStyleSheet()
     story = []
     
-    # Custom styles
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
         fontSize=18,
         spaceAfter=30,
-        alignment=1  # Center alignment
+        alignment=1  
     )
     
     heading_style = ParagraphStyle(
@@ -37,11 +28,11 @@ def create_test_pdf(output_path: Path):
         spaceAfter=10
     )
     
-    # Document content
+    
     story.append(Paragraph("Test Document for PDF Processing", title_style))
     story.append(Spacer(1, 20))
     
-    # Introduction section
+    
     story.append(Paragraph("1. Introduction", heading_style))
     story.append(Paragraph(
         "This is a test document created to validate the PDF processing solution for the Adobe India Hackathon 2025 Challenge 1a. "
@@ -50,7 +41,7 @@ def create_test_pdf(output_path: Path):
     ))
     story.append(Spacer(1, 15))
     
-    # Methodology section
+    
     story.append(Paragraph("2. Methodology", heading_style))
     story.append(Paragraph(
         "The PDF processing solution should be able to extract this text and identify the document structure. "
@@ -59,7 +50,7 @@ def create_test_pdf(output_path: Path):
     ))
     story.append(Spacer(1, 15))
     
-    # Data section with table
+    
     story.append(Paragraph("3. Sample Data", heading_style))
     story.append(Paragraph(
         "The following table contains sample data that should be extracted and parsed:",
@@ -67,7 +58,7 @@ def create_test_pdf(output_path: Path):
     ))
     story.append(Spacer(1, 10))
     
-    # Create a table
+    
     table_data = [
         ['Parameter', 'Value', 'Unit', 'Notes'],
         ['Processing Time', '< 10', 'seconds', 'For 50-page PDF'],
@@ -91,7 +82,7 @@ def create_test_pdf(output_path: Path):
     story.append(table)
     story.append(Spacer(1, 20))
     
-    # Results section
+    
     story.append(Paragraph("4. Expected Results", heading_style))
     story.append(Paragraph(
         "The PDF processing solution should extract this document and generate a JSON file containing:",
@@ -105,7 +96,6 @@ def create_test_pdf(output_path: Path):
     story.append(Paragraph("• Processing metadata (confidence score, language, word count)", styles['Normal']))
     story.append(Spacer(1, 15))
     
-    # Conclusion section
     story.append(Paragraph("5. Conclusion", heading_style))
     story.append(Paragraph(
         "This test document provides a structured format to validate the PDF processing capabilities. "
@@ -114,7 +104,6 @@ def create_test_pdf(output_path: Path):
         styles['Normal']
     ))
     
-    # Build the PDF
     doc.build(story)
     print(f"Test PDF created: {output_path}")
 
@@ -134,7 +123,7 @@ if __name__ == "__main__":
         print("ReportLab not available. Creating a simple text-based PDF creator...")
         print("You can manually add PDF files to sample_dataset/pdfs/ for testing.")
         
-        # Create a simple text file as a placeholder
+       
         placeholder_file = Path("sample_dataset/pdfs/README.txt")
         placeholder_file.parent.mkdir(parents=True, exist_ok=True)
         

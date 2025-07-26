@@ -6,12 +6,16 @@
 # 1. Add your PDF files
 cp your-test-file.pdf sample_dataset/pdfs/
 
-# 2. Run the test
+# 2. Run the Docker test (only testing method)
 ./test.sh
 
 # 3. Check results
 ls sample_dataset/outputs/
 ```
+
+## Docker-Only Testing
+
+This solution uses Docker exclusively for testing to ensure consistency with the hackathon evaluation environment.
 
 ## What You'll See
 
@@ -31,11 +35,12 @@ ls sample_dataset/outputs/
 
 - ⚡ **Speed**: Processes in milliseconds (target: <10s for 50 pages)
 - 🧠 **Intelligence**: Extracts sections, tables, metadata
-- 🐳 **Docker**: AMD64 compatible, offline processing  
+- 🐳 **Docker**: AMD64 compatible, offline processing
 - 📄 **Output**: Clean JSON with document structure
 - 🔒 **Secure**: No network access during processing
 
 For detailed instructions, see [TESTING_INSTRUCTIONS.md](TESTING_INSTRUCTIONS.md)
 
 ---
+
 **Ready for Adobe India Hackathon 2025 Challenge 1a** 🏆

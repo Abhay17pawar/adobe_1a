@@ -1,18 +1,3 @@
-#!/usr/bin/env python3
-"""
-PDF Processing Solution for Adobe India Hackathon 2025 - Challenge 1a
-
-This script processes PDF files from the input directory and generates
-structured JSON output files in the output directory.
-
-Requirements:
-- Process all PDFs from /app/input directory
-- Generate filename.json for each filename.pdf
-- Complete processing within 10 seconds for 50-page PDFs
-- Work without internet access
-- Use only open-source libraries
-"""
-
 import json
 import os
 import sys

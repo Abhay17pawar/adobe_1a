@@ -1,10 +1,7 @@
-# Core PDF processing libraries
 PyPDF2==3.0.1
 pymupdf==1.23.3
 pdfplumber==0.9.0
 
-# Additional utilities
 python-dateutil==2.8.2
 
-# For better text processing
 regex==2023.6.3

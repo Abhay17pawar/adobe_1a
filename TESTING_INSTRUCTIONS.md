@@ -8,48 +8,29 @@ This guide will help you test the PDF processing solution on your machine with D
 - **Git**: To clone the repository
 - **Test PDF files**: Any PDF files you want to test with
 
-## Quick Start (5 minutes)
+## Docker Testing Only
 
-### 1. Clone the Repository
+**Note**: This solution only supports Docker-based testing to ensure consistency with the official hackathon evaluation environment.
+
+### Quick Test (Recommended)
+
 ```bash
-git clone <repository-url>
-cd Challenge_1a
-```
-
-### 2. Add Test PDF Files
-```bash
-# Create the input directory if it doesn't exist
-mkdir -p sample_dataset/pdfs
-
-# Copy your test PDF files to this directory
-cp /path/to/your/test.pdf sample_dataset/pdfs/
-```
-
-### 3. Run the Automated Test
-```bash
-# Make the test script executable
-chmod +x test.sh
-
-# Run the complete test (builds Docker image and processes PDFs)
+# Run the complete automated test
 ./test.sh
 ```
 
-That's it! The script will:
-- ✅ Build the Docker image
-- ✅ Process all PDF files in `sample_dataset/pdfs/`
-- ✅ Generate JSON outputs in `sample_dataset/outputs/`
-- ✅ Show you the results
+### Manual Docker Testing
 
-## Manual Testing (Step by Step)
-
-If you prefer to run commands manually:
+If you prefer step-by-step:
 
 ### 1. Build the Docker Image
+
 ```bash
 docker build --platform linux/amd64 -t pdf-processor .
 ```
 
 ### 2. Run the Processing
+
 ```bash
 docker run --rm \
     -v "$(pwd)/sample_dataset/pdfs:/app/input:ro" \
@@ -59,6 +40,7 @@ docker run --rm \
 ```
 
 ### 3. Check Results
+
 ```bash
 # List generated JSON files
 ls -la sample_dataset/outputs/
@@ -70,6 +52,7 @@ cat "sample_dataset/outputs/your-pdf-name.json"
 ## Expected Output
 
 When successful, you should see:
+
 ```
 🚀 Adobe India Hackathon 2025 - Challenge 1a Test Script
 ==================================================
@@ -127,6 +110,7 @@ For each `filename.pdf` in the input directory, you'll get a `filename.json` wit
 To test performance with the hackathon requirements:
 
 ### Test Processing Speed
+
 ```bash
 # Time the processing
 time docker run --rm \
@@ -139,6 +123,7 @@ time docker run --rm \
 **Expected**: Processing should complete in under 10 seconds for 50-page PDFs.
 
 ### Test Resource Usage
+
 ```bash
 # Monitor resource usage during processing
 docker stats pdf-processor
@@ -151,6 +136,7 @@ docker stats pdf-processor
 ### Common Issues and Solutions
 
 #### 1. "Docker command not found"
+
 ```bash
 # Install Docker (Ubuntu/Debian)
 sudo apt update && sudo apt install docker.io
@@ -160,6 +146,7 @@ sudo usermod -aG docker $USER
 ```
 
 #### 2. "Permission denied" errors
+
 ```bash
 # Make sure test script is executable
 chmod +x test.sh
@@ -170,6 +157,7 @@ sudo usermod -aG docker $USER
 ```
 
 #### 3. "No PDF files found"
+
 ```bash
 # Check if PDFs are in the right location
 ls -la sample_dataset/pdfs/
@@ -177,12 +165,14 @@ ls -la sample_dataset/pdfs/
 ```
 
 #### 4. Build fails with architecture errors
+
 ```bash
 # Force AMD64 architecture
 docker build --platform linux/amd64 -t pdf-processor .
 ```
 
 #### 5. Processing returns empty results
+
 - Check if your PDF is text-based (not scanned images)
 - Try with a different PDF file
 - Check the logs for specific error messages
@@ -200,28 +190,25 @@ Test with various PDF types to validate robustness:
 ## Validation
 
 ### Check Output Quality
+
 1. **Structure**: Verify sections are properly detected
 2. **Content**: Ensure text is extracted accurately
 3. **Metadata**: Check processing time and confidence scores
 4. **Schema**: Validate JSON format matches expected structure
 
 ### Performance Validation
+
 - ✅ Processing time < 10 seconds for 50-page PDFs
 - ✅ Memory usage < 16GB
 - ✅ Works without internet access (`--network none`)
 - ✅ Runs on CPU only (AMD64 architecture)
 
-## Local Development Testing
+## Docker-Only Environment
 
-For development and debugging:
-
-```bash
-# Test without Docker (requires Python libraries)
-python3 test_local.py
-
-# Install dependencies locally (optional)
+This solution is designed to work exclusively with Docker to match the official hackathon testing environment. Local Python testing is not supported to ensure consistency with evaluation.
 pip3 install -r requirements.txt
-```
+
+````
 
 ## Getting Help
 
@@ -256,6 +243,6 @@ docker run --rm -v "$(pwd)/sample_dataset/pdfs:/app/input:ro" -v "$(pwd)/sample_
 # Check results
 ls sample_dataset/outputs/
 cat sample_dataset/outputs/your-file.json
-```
+````
 
 Happy testing! 🚀

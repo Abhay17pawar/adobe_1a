@@ -1,0 +1,25 @@
+{
+  "title": "Create Table: CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(50))",
+  "outline": [
+    {
+      "level": "H1",
+      "text": "PostgreSQL + Prisma ORM Cheat Sheet (2025 Edition)",
+      "page": 1
+    },
+    {
+      "level": "H2",
+      "text": "PostgreSQL Commands",
+      "page": 1
+    },
+    {
+      "level": "H2",
+      "text": "Prisma ORM Commands",
+      "page": 1
+    },
+    {
+      "level": "H2",
+      "text": "Best Practices & Tips",
+      "page": 2
+    }
+  ]
+}
