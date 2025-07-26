@@ -1,10 +1,15 @@
 {
-  "title": "Foundation Level Extensions",
+  "title": "Copyright © International Software Testing Qualifications Board (hereinafter called ISTQB®).",
   "outline": [
     {
-      "level": "H2",
+      "level": "H1",
       "text": "Foundation Level Extensions",
       "page": 1
+    },
+    {
+      "level": "H1",
+      "text": "Revision History",
+      "page": 3
     },
     {
       "level": "H1",

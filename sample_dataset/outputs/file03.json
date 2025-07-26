@@ -1,6 +1,16 @@
 {
-  "title": "Document from file03",
+  "title": "RFP: Reeeequest f",
   "outline": [
+    {
+      "level": "H1",
+      "text": "RFP: R",
+      "page": 1
+    },
+    {
+      "level": "H2",
+      "text": "Working Together",
+      "page": 1
+    },
     {
       "level": "H2",
       "text": "April 21, 2003.",
@@ -8,7 +18,17 @@
     },
     {
       "level": "H2",
+      "text": "Prosperity Strategy",
+      "page": 2
+    },
+    {
+      "level": "H2",
       "text": "Provincial Purchasing & Licensing:",
+      "page": 5
+    },
+    {
+      "level": "H2",
+      "text": "Technological Support:",
       "page": 5
     },
     {

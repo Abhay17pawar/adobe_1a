@@ -39,7 +39,7 @@ try:
 except ImportError:
     PyPDF2 = None
 from pathlib import Path
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Any, Optional, Tuple
 import logging
 from datetime import datetime
 
@@ -378,14 +378,15 @@ def parse_document_structure(text_content: str, pdf_filename: str, page_count: i
     return structured_data
 
 def _extract_document_title(text_content: str, pdf_filename: str) -> str:
-    """Extract document title from text content"""
+    """Extract document title from text content with improved detection"""
     if not text_content:
         return f"Document from {Path(pdf_filename).stem}"
     
     lines = text_content.split('\n')
+    potential_titles = []
     
-    # Look for title patterns in the first few pages
-    for line in lines[:100]:  # Check first 100 lines
+    # Look for title patterns in the first two pages
+    for i, line in enumerate(lines[:200]):  # Expanded search scope
         line = line.strip()
         if not line:
             continue
@@ -393,26 +394,145 @@ def _extract_document_title(text_content: str, pdf_filename: str) -> str:
         # Skip page markers
         if re.match(r'^--- PAGE \d+ ---$', line):
             continue
-        
-        # Skip common headers/footers
-        if re.match(r'^(International|Overview|Software Testing|Qualifications Board)$', line, re.IGNORECASE):
+            
+        # Skip obvious headers/footers (but be more selective)
+        if re.match(r'^(Page \d+|© \d+|www\.|http|mailto:|^\d+$).*', line, re.IGNORECASE):
             continue
+            
+        # Skip very short lines that aren't titles
+        if len(line) < 8:
+            continue
+            
+        # Calculate title score based on multiple factors
+        title_score = _calculate_title_score(line, i, lines)
         
-        # Look for title-like patterns
-        if re.match(r'^[A-Z][A-Za-z\s\-–]{10,80}$', line):
-            # Check if it looks like a real title (not a header)
-            if any(word in line.lower() for word in ['foundation', 'level', 'extension', 'overview', 'introduction', 'guide', 'manual', 'document']):
-                return line.strip()
-        
-        # Look for lines that might be titles (first substantial text)
-        if len(line) > 10 and len(line) < 100:
-            # If it contains typical title words
-            title_indicators = ['overview', 'introduction', 'guide', 'manual', 'foundation', 'level', 'extension', 'challenge', 'hackathon']
-            if any(indicator in line.lower() for indicator in title_indicators):
-                return line.strip()
+        if title_score > 0:
+            potential_titles.append((title_score, line.strip(), i))
     
-    # Fallback to filename-based title
+    # If we found potential titles, return the highest scoring one
+    if potential_titles:
+        potential_titles.sort(key=lambda x: x[0], reverse=True)
+        best_title = potential_titles[0][1]
+        
+        # Clean up the title
+        best_title = _clean_title(best_title)
+        
+        # If it's still a reasonable title, return it
+        if len(best_title) >= 8 and len(best_title) <= 200:
+            return best_title
+    
+    # Enhanced fallback: try to extract from first substantial text
+    for line in lines[:50]:
+        line = line.strip()
+        if len(line) > 15 and len(line) < 150:
+            # Check if it's substantial text, not a header/footer
+            if not re.match(r'^(Page|©|\d+\.?\s|Figure|Table|Chapter)', line):
+                cleaned = _clean_title(line)
+                if len(cleaned) >= 8:
+                    return cleaned
+    
+    # Final fallback to filename-based title
     return f"Document from {Path(pdf_filename).stem}"
+
+
+def _calculate_title_score(line: str, position: int, all_lines: List[str]) -> float:
+    """Calculate how likely a line is to be a document title"""
+    score = 0.0
+    line_lower = line.lower()
+    
+    # Position bonus (earlier = better, but not too early)
+    if 2 <= position <= 20:
+        score += 2.0
+    elif position <= 50:
+        score += 1.0
+    elif position > 100:
+        score -= 0.5
+    
+    # Length bonus (good titles are substantial but not too long)
+    length = len(line)
+    if 15 <= length <= 100:
+        score += 2.0
+    elif 8 <= length <= 150:
+        score += 1.0
+    elif length > 200:
+        score -= 2.0
+    
+    # Content analysis - use statistical approach instead of hardcoded words
+    # Look for title-like characteristics without hardcoded vocabulary
+    words = line.split()
+    
+    # Analyze word characteristics that indicate titles
+    if words:
+        # Meaningful words (not too short, not too common)
+        meaningful_words = [w for w in words if len(w) > 3 and w.isalpha()]
+        meaningful_ratio = len(meaningful_words) / len(words) if words else 0
+        score += meaningful_ratio * 0.8
+        
+        # Noun-heavy patterns (titles often contain many nouns)
+        # Simple heuristic: words ending in common noun suffixes
+        noun_indicators = sum(1 for w in words if w.lower().endswith(('tion', 'ment', 'ness', 'ity', 'cy', 'ing', 'al', 'er', 'or')))
+        if noun_indicators > 0:
+            score += min(noun_indicators * 0.2, 0.6)
+    
+    # Proper capitalization patterns
+    words = line.split()
+    if len(words) > 1:
+        # Check for title case
+        title_case_words = sum(1 for word in words if word[0].isupper() and len(word) > 2)
+        if title_case_words >= len(words) * 0.6:  # At least 60% title case
+            score += 1.5
+        
+        # All caps might be a title
+        if line.isupper() and len(words) >= 2:
+            score += 1.0
+    
+    # Formatting clues
+    if ':' in line and not line.endswith(':'):  # Subtitles
+        score += 1.0
+    
+    if line.endswith('.') and len(words) > 3:  # Sentence-like titles
+        score += 0.5
+        
+    # Penalty for things that are clearly not titles - use generic patterns
+    if re.match(r'^\d+\.?\s*$', line):  # Just numbers or numbered lists
+        score -= 1.0
+        
+    # Generic patterns that are unlikely to be titles
+    if re.match(r'^(page|figure|table|appendix)\s+\d+', line_lower):
+        score -= 1.0
+    
+    # Very repetitive patterns (likely headers/footers)
+    if len(set(line_lower.split())) == 1 and len(line.split()) > 1:  # Same word repeated
+        score -= 1.0
+    
+    # Bonus for lines that stand alone (likely titles)
+    if position > 0 and position < len(all_lines) - 1:
+        prev_line = all_lines[position - 1].strip()
+        next_line = all_lines[position + 1].strip() if position + 1 < len(all_lines) else ""
+        
+        if not prev_line and not next_line:  # Isolated line
+            score += 1.0
+        elif not prev_line:  # Line after blank
+            score += 0.5
+    
+    return max(0.0, score)
+
+
+def _clean_title(title: str) -> str:
+    """Clean up a potential title"""
+    # Remove leading/trailing whitespace
+    title = title.strip()
+    
+    # Remove common prefixes/suffixes that aren't part of the title
+    title = re.sub(r'^(Abstract[:\s]|Summary[:\s]|Introduction[:\s])', '', title, flags=re.IGNORECASE)
+    
+    # Clean up multiple spaces
+    title = re.sub(r'\s+', ' ', title)
+    
+    # Remove trailing punctuation except meaningful ones
+    title = re.sub(r'[,;]+$', '', title)
+    
+    return title.strip()
 
 def _extract_outline(text_content: str, page_texts: List[str]) -> List[Dict[str, Any]]:
     """Extract outline (headings) from text content using advanced detection"""
@@ -696,23 +816,12 @@ def _calculate_dynamic_threshold(scores: List[float]) -> float:
         return max(0.3, scores_sorted[0] * 0.6 if scores_sorted else 0.3)
 
 def _is_header_footer_advanced(text: str, block: Dict[str, Any]) -> bool:
-    """Advanced header/footer detection using text and layout"""
+    """Advanced header/footer detection using generic patterns"""
     text_lower = text.lower().strip()
     bbox = block.get('bbox', [0, 0, 0, 0])
     x0, y0, x1, y1 = bbox
     
-    # Common header/footer patterns (expanded)
-    ignore_patterns = [
-        'international', 'overview', 'software testing', 'qualifications board',
-        'foundation level extension', 'agile tester', 'page', 'copyright', '©',
-        'confidential', 'draft', 'version', 'date', 'document', 'title'
-    ]
-    
-    # Exact matches
-    if text_lower in ignore_patterns:
-        return True
-    
-    # Very short text
+    # Very short text (likely not meaningful)
     if len(text) < 3:
         return True
     
@@ -720,59 +829,59 @@ def _is_header_footer_advanced(text: str, block: Dict[str, Any]) -> bool:
     if re.match(r'^\d+$', text_lower):
         return True
     
+    # URLs, emails, copyright symbols
+    if re.match(r'^(www\.|http|mailto:|.*©.*|.*copyright.*)$', text_lower):
+        return True
+    
     # Headers that appear in very top or bottom positions
     if y0 < 50 or y0 > 700:  # Likely in header/footer area
         if len(text.split()) <= 3:  # Short text in header/footer area
             return True
     
-    # Repetitive short phrases
-    if len(text.split()) <= 2 and not re.match(r'^\d+\.', text):
+    # Repetitive short phrases (same word repeated)
+    words = text_lower.split()
+    if len(words) <= 3 and len(set(words)) == 1:
+        return True
+    
+    # Very common single words that appear alone
+    single_common_words = {'page', 'document', 'draft', 'version', 'date', 'title', 'header', 'footer'}
+    if len(words) == 1 and words[0] in single_common_words:
         return True
     
     return False
 
 def _determine_heading_level_advanced(text: str, block: Dict[str, Any]) -> str:
-    """Advanced heading level determination using multiple factors"""
+    """Advanced heading level determination using adaptive patterns"""
     font_size = block.get('size', 12)
     is_bold = block.get('is_bold', False)
     
-    # H1 patterns (main sections) - highest priority
-    h1_patterns = [
-        r'^\d+\.\s+[A-Z]',              # "1. Introduction"
-        r'^[A-Z][A-Z\s]{8,}$',          # "REVISION HISTORY" 
-        r'^Chapter\s+\d+',               # "Chapter 1"
-        r'^(Acknowledgements?|References?|Table\s+of\s+Contents)$',  # Special sections
-    ]
-    
-    # H2 patterns (subsections)
-    h2_patterns = [
-        r'^\d+\.\d+\s+',                # "2.1 Overview"
-        r'^[A-Z][a-z]+(\s+[A-Z][a-z]+)*:?$',  # Title case phrases
-    ]
-    
-    # H3 patterns (sub-subsections)
-    h3_patterns = [
-        r'^\d+\.\d+\.\d+\s+',           # "2.1.1 Details"
-        r'^[a-z]+\)',                   # "a) First point"
-    ]
-    
-    # Check patterns in order of specificity
-    for pattern in h3_patterns:
-        if re.match(pattern, text):
-            return "H3"
-    
-    for pattern in h2_patterns:
-        if re.match(pattern, text):
-            return "H2"
-    
-    for pattern in h1_patterns:
-        if re.match(pattern, text, re.IGNORECASE):
-            return "H1"
-    
-    # Font-based classification as fallback
-    if font_size > 16 or (font_size > 14 and is_bold):
+    # Hierarchical numbering patterns (universal across document types)
+    if re.match(r'^\d+\.\d+\.\d+\s+', text):  # "2.1.1 Details"
+        return "H3"
+    elif re.match(r'^\d+\.\d+\s+', text):      # "2.1 Overview"
+        return "H2"
+    elif re.match(r'^\d+\.\s+', text):         # "1. Introduction"
         return "H1"
-    elif font_size > 12 or is_bold:
+    
+    # Roman numerals (I, II, III, IV, etc.)
+    if re.match(r'^[IVX]+\.\s+', text, re.IGNORECASE):
+        return "H1"
+    
+    # Letter-based numbering (A., B., C.)
+    if re.match(r'^[A-Z]\.\s+', text):
+        return "H2"
+    
+    # All caps text (often main headings)
+    if text.isupper() and len(text.split()) >= 2:
+        return "H1"
+    
+    # Font-based classification (more reliable than content)
+    avg_font_size = 12  # Assume average document font size
+    size_ratio = font_size / avg_font_size
+    
+    if size_ratio > 1.5 or (size_ratio > 1.2 and is_bold):
+        return "H1"
+    elif size_ratio > 1.1 or is_bold:
         return "H2"
     else:
         return "H3"
@@ -800,29 +909,6 @@ def _apply_hierarchy_consistency(headings: List[Dict[str, Any]]) -> List[Dict[st
         last_level = heading['level']
     
     return consistent_headings
-
-def _is_header_footer(text: str) -> bool:
-    """Check if text is likely a header or footer"""
-    text_lower = text.lower().strip()
-    
-    # Common header/footer patterns
-    ignore_patterns = [
-        'international', 'overview', 'software testing', 'qualifications board',
-        'foundation level extension', 'agile tester', 'page', 'copyright', '©'
-    ]
-    
-    # Exact matches
-    if text_lower in ignore_patterns:
-        return True
-    
-    # Pattern matches
-    if re.match(r'^\d+$', text_lower):  # Just page numbers
-        return True
-    
-    if len(text) < 3:  # Very short text
-        return True
-        
-    return False
 
 def _determine_heading_level(text: str, font_size: float) -> str:
     """Determine H1, H2, H3 level based on text patterns and font size"""
@@ -880,14 +966,120 @@ def _extract_outline_regex_fallback(text_content: str) -> List[Dict[str, Any]]:
                 page_content = parts[i + 1]
                 
                 # Extract headings from this page
-                page_headings = _extract_headings_from_page(page_content, page_num)
+                page_headings = _extract_headings_from_page_generic(page_content, page_num)
                 outline.extend(page_headings)
     else:
         # If no page markers, process as single page
-        page_headings = _extract_headings_from_page(text_content, 1)
+        page_headings = _extract_headings_from_page_generic(text_content, 1)
         outline.extend(page_headings)
     
     return outline
+
+def _extract_headings_from_page_generic(page_content: str, page_num: int) -> List[Dict[str, Any]]:
+    """Extract headings using generic patterns that work across document types"""
+    headings = []
+    lines = page_content.split('\n')
+    
+    # Track seen headings to avoid duplicates
+    seen_headings = set()
+    
+    for line in lines:
+        line = line.strip()
+        if not line or len(line) > 150:  # Skip empty or very long lines
+            continue
+        
+        # Skip obvious non-headings using generic patterns
+        if _is_likely_not_heading_generic(line):
+            continue
+        
+        # Detect heading level using generic patterns
+        level = _detect_heading_level_generic(line)
+        if level:
+            # Clean up the heading text
+            heading_text = line.rstrip(':').strip()
+            
+            # Create a key for duplicate detection (normalize whitespace)
+            heading_key = ' '.join(heading_text.split()).lower()
+            
+            # Skip if we've seen this heading before
+            if heading_key in seen_headings:
+                continue
+            
+            # Skip very short headings (likely false positives)
+            if len(heading_text.strip()) < 4:
+                continue
+            
+            headings.append({
+                "level": level,
+                "text": heading_text,
+                "page": page_num
+            })
+            seen_headings.add(heading_key)
+    
+    return headings
+
+def _is_likely_not_heading_generic(line: str) -> bool:
+    """Generic patterns to identify non-headings"""
+    line_lower = line.lower().strip()
+    
+    # Just numbers (page numbers)
+    if re.match(r'^\d+$', line_lower):
+        return True
+    
+    # URLs, emails, copyright
+    if re.match(r'^(www\.|http|mailto:|.*©.*|.*copyright.*)$', line_lower):
+        return True
+    
+    # Very short single words
+    if len(line.split()) == 1 and len(line) < 4:
+        return True
+    
+    # Lines that end with periods and are long (likely paragraphs)
+    if line.endswith('.') and len(line.split()) > 10:
+        return True
+    
+    # Lines with too many special characters (likely metadata)
+    special_char_ratio = len(re.findall(r'[^\w\s]', line)) / len(line) if line else 0
+    if special_char_ratio > 0.3:
+        return True
+    
+    return False
+
+def _detect_heading_level_generic(line: str) -> Optional[str]:
+    """Detect heading level using universal patterns"""
+    # Hierarchical numbering (works across all document types)
+    if re.match(r'^\d+\.\d+\.\d+\s+', line):  # "2.1.1 Details"
+        return "H3"
+    elif re.match(r'^\d+\.\d+\s+', line):      # "2.1 Overview"
+        return "H2"
+    elif re.match(r'^\d+\.\s+', line):         # "1. Introduction"
+        return "H1"
+    
+    # Roman numerals
+    elif re.match(r'^[IVX]+\.\s+', line, re.IGNORECASE):
+        return "H1"
+    
+    # Letter numbering
+    elif re.match(r'^[A-Z]\.\s+', line):
+        return "H2"
+    elif re.match(r'^[a-z]\)\s+', line):
+        return "H3"
+    
+    # All caps headings (often main sections)
+    elif line.isupper() and 3 <= len(line.split()) <= 8:
+        return "H1"
+    
+    # Title case with reasonable length (likely subsections)
+    elif line.istitle() and 2 <= len(line.split()) <= 6:
+        return "H2"
+    
+    # Lines that start with capital and have title-like structure
+    elif (re.match(r'^[A-Z][a-z]', line) and 
+          not line.endswith('.') and 
+          2 <= len(line.split()) <= 8):
+        return "H3"
+    
+    return None
     """Extract headings from a single page with improved filtering"""
     headings = []
     lines = page_content.split('\n')
