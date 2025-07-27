@@ -15,6 +15,10 @@ We didn't guess our way to accuracy. Through extensive experimentation across **
 
 ### 🎯 **Multi-Factor Intelligence Engine**
 
+<div style="border: 2px solid #000; display: inline-block; padding: 5px;">
+  <img src="https://drive.google.com/file/d/1PQ9q3SGhk7szl4Q_52ofSymC64Qn21TW/view?usp=sharing" alt="Descriptive Alt Text" style="display: block; width: 300px;">
+</div>
+
 Our solution employs a **weighted scoring system** with four complementary analysis layers, each fine-tuned through empirical testing:
 
 #### 1. **Font Analysis (Primary Factor - 40% weight)** 🔍
